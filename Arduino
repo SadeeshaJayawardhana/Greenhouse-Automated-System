@@ -1,0 +1,87 @@
+#include <DHT.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// Define DHT sensor
+#define DHTPIN 2
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Pin definitions
+const int fanPin = 5;          // Pin for temperature-controlled fan
+const int secondFanPin = 7;    // Pin for humidity-controlled fan
+const int pumpPin = 3;         // Pin for water pump control (relay)
+const int soilMoisturePin = 6; // Pin for soil moisture sensor
+
+// Set up LCDs with addresses and dimensions
+LiquidCrystal_I2C lcd1(0x27, 16, 2); // First LCD at address 0x27
+LiquidCrystal_I2C lcd2(0x25, 16, 2); // Second LCD at address 0x25
+
+void setup() {
+  // Initialize DHT sensor
+  dht.begin();
+
+  // Pin modes
+  pinMode(fanPin, OUTPUT);
+  pinMode(secondFanPin, OUTPUT);   // Humidity-controlled fan
+  pinMode(pumpPin, OUTPUT);
+  pinMode(soilMoisturePin, INPUT);
+
+  // Initialize both LCDs
+  lcd1.init();
+  lcd1.backlight();
+  lcd2.init();
+  lcd2.backlight();
+
+  // Initial messages on LCDs
+  lcd1.setCursor(0, 0);
+  lcd1.print("   Greenhouse");
+  lcd1.setCursor(0, 1);
+  lcd1.print("     System");
+  lcd2.setCursor(0, 0);
+  lcd2.print("   Greenhouse");
+  lcd2.setCursor(0, 1);
+  lcd2.print("     System");
+  delay(2000);
+  lcd1.clear();
+  lcd2.clear();
+}
+
+void loop() {
+  // Read temperature and humidity
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  // Read soil moisture status
+  int soilMoisture = digitalRead(soilMoisturePin);  // Soil moisture: HIGH = wet, LOW = dry
+
+  // Temperature fan control: turn on if temperature exceeds 35°C (active HIGH)
+  bool fanStatus = temperature > 35;
+  digitalWrite(fanPin, fanStatus ? HIGH : LOW);
+
+  // Humidity fan control: turn on if humidity drops below 75% (active LOW relay)
+  bool secondFanStatus = humidity < 75;
+  digitalWrite(secondFanPin, secondFanStatus ? LOW : HIGH);  // LOW to turn on for active LOW relay
+
+  // Water pump control based on soil moisture (active HIGH)
+  bool pumpStatus = soilMoisture == LOW;  // Pump ON if soil is dry (LOW)
+  digitalWrite(pumpPin, pumpStatus ? HIGH : LOW);  // HIGH to turn on for active HIGH relay
+
+  // First LCD (lcd1): Display temperature, humidity, and fan status
+  lcd1.setCursor(0, 0); 
+  lcd1.print("Temp:"); lcd1.print(temperature, 0); lcd1.print("C ");
+  lcd1.print("FAN:"); lcd1.print(fanStatus ? "ON  " : "OFF");
+
+  lcd1.setCursor(0, 1);
+  lcd1.print("Humi:"); lcd1.print(humidity, 0); lcd1.print("% ");
+  lcd1.print("FAN:"); lcd1.print(secondFanStatus ? "ON " : "OFF");
+
+  // Second LCD (lcd2): Display soil moisture and pump status
+  lcd2.setCursor(0, 0);
+  lcd2.print("SoilMoisture:"); lcd2.print(soilMoisture == HIGH ? "Dry " : "Wet ");
+  
+  lcd2.setCursor(0, 1);
+  lcd2.print("Water Pump:"); lcd2.print(pumpStatus ? "OFF " : "ON  ");
+
+  delay(1000); //
+}
